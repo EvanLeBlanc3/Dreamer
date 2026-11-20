@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dreamer</title>
+<meta name="theme-color" content="#0b0820">
+<meta name="description" content="Dreamer plays random clips from your own video folders, with TV-static transitions.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<script>/* apply the saved color theme before the first paint (no flash) */
+try{var t=JSON.parse(localStorage.getItem('dreamer.settings')||'{}').theme;if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="stars" aria-hidden="true"></div>
+
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+        <defs><radialGradient id="lg" cx="50%" cy="50%" r="50%"><stop offset="0" style="stop-color:var(--moon)"/><stop offset="1" style="stop-color:var(--moon2)"/></radialGradient></defs>
+        <path d="M44 8a26 26 0 1 0 12 40A22 22 0 0 1 44 8z" fill="url(#lg)"/>
+        <path d="M50 14l1.6 4 4 1.6-4 1.6-1.6 4-1.6-4-4-1.6 4-1.6z" fill="#fff"/>
+      </svg>
+      <div>
+        <h1>Dreamer</h1>
+        <p class="tag">Your videos, but make it a fever dream.</p>
+      </div>
+    </div>
+    <div class="topRight">
+      <div class="themes" id="themes" role="radiogroup" aria-label="App color theme"></div>
+      <button id="btnInstall" class="ghost" hidden>＋ Install app</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ===== STAGE ===== -->
+    <section class="stageCol">
+      <div id="tvWrap" data-frame="clean">
+        <div id="tvFrame">
+          <svg id="tvArt" viewBox="0 0 1000 562" preserveAspectRatio="none" aria-hidden="true"></svg>
+          <div id="stage" class="fit-contain" tabindex="-1" data-filter="off">
+            <div id="bg3d" aria-hidden="true"></div>
+            <div id="persp">
+              <div id="cam">
+                <div id="picture">
+                  <video id="vA" playsinline preload="auto"></video>
+                  <video id="vB" playsinline preload="auto"></video>
+                  <canvas id="ov" width="960" height="540"></canvas>
+                  <canvas id="fx" width="320" height="180"></canvas>
+                </div>
+              </div>
+            </div>
+            <div id="fx3d" aria-hidden="true"></div>
+            <div id="idle" class="overlayMsg">
+              <div class="bigMoon">🌙</div>
+              <div id="idleText">Pick a folder to begin dreaming</div>
+            </div>
+            <div id="endCard" class="overlayMsg" hidden>
+              <div class="bigMoon">😴</div>
+              <div id="endText">Sweet dreams.</div>
+            </div>
+            <div id="tapResume" class="overlayMsg" hidden>
+              <div class="bigMoon">▶</div>
+              <div>Your browser wants a tap before it plays. Tap anywhere.</div>
+            </div>
+            <div id="flt" aria-hidden="true">
+              <div class="fl-grid"></div>
+              <div class="fl-mask"></div>
+              <div class="fl-fringe"></div>
+              <canvas id="fltc" width="320" height="180"></canvas>
+              <div class="fl-scan"></div>
+              <div class="fl-roll"></div>
+              <div class="fl-flick"></div>
+              <div class="fl-vig"></div>
+              <div id="fltOsd"><span class="o tl">CAM 02</span><span class="o tr"><i>●</i> REC</span><span class="o bl" id="osdTime"></span></div>
+            </div>
+            <div id="wx" data-c="br" aria-live="off"></div>
+            <div id="osdPause" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="nowPlaying">
+        <div class="npTop">
+          <div class="npName" id="npName">Nothing playing yet</div>
+          <div class="npPath" id="npPath">&nbsp;</div>
+        </div>
+        <div class="bar"><div id="clipBar"></div></div>
+        <div class="stats">
+          <span>Clip <b id="stClip">–</b></span>
+          <span>Time left <b id="stLeft">–</b></span>
+          <span>Starts at <b id="stStart">–</b></span>
+          <span>Session <b id="stSession">–</b></span>
+        </div>
+      </div>
+
+      <div class="transport">
+        <button id="btnPlay" class="primary big">▶ Start dreaming</button>
+        <button id="btnPause" class="primary big" title="Pause / resume (Space)" hidden>⏸ Pause</button>
+        <button id="btnPrev" title="Previous clip (← or P)" disabled>⏮ Previous</button>
+        <button id="btnSkip" title="Next clip (→ or N)" disabled>⏭ Next</button>
+        <button id="btnStop" title="Stop session" disabled>⏹ Stop</button>
+        <button id="btnFull" title="Fullscreen (F)">⛶ Fullscreen</button>
+        <div class="vol">
+          <button id="btnMute" title="Mute (M)" class="icon">🔊</button>
+          <input id="volume" type="range" min="0" max="100" step="1" aria-label="Volume">
+          <span id="volLabel">80%</span>
+        </div>
+      </div>
+      <p class="hint">Shortcuts: <kbd>Space</kbd> pause · <kbd>←</kbd>/<kbd>P</kbd> previous · <kbd>→</kbd>/<kbd>N</kbd> next · <kbd>F</kbd> fullscreen · <kbd>↑</kbd><kbd>↓</kbd> volume · <kbd>M</kbd> mute · double-click the video for fullscreen. In fullscreen no controls show (just your filter, the optional Up Next banner and the subtle weather corner); the shortcuts still work.</p>
+    </section>
+
+    <!-- ===== SETTINGS ===== -->
+    <aside class="panel">
+      <div class="card">
+        <h2>📁 Video folder</h2>
+        <div id="folderInfo" class="folderInfo">No folder chosen yet.</div>
+        <div class="row">
+          <button id="btnFolder" class="primary">Choose folder…</button>
+          <button id="btnRescan" disabled>↻ Rescan</button>
+        </div>
+        <button id="btnReconnect" class="accent" hidden></button>
+        <label class="check"><input type="checkbox" id="optSub"> Include subfolders</label>
+        <details id="skipped" hidden><summary id="skippedSum"></summary><div id="skippedList"></div></details>
+        <p class="small" id="browserNote"></p>
+      </div>
+
+      <div class="card">
+        <h2>⏱ Clip length</h2>
+        <p class="small">How long each clip plays before switching.</p>
+        <div class="chips" id="chipsClip"></div>
+      </div>
+
+      <div class="card">
+        <h2>🌙 How long to dream</h2>
+        <p class="small">Stops at whichever limit hits first. Pick ∞ Unlimited on both to run forever.</p>
+        <button id="btnForever" class="accent forever">♾️ Dream forever (no limits)</button>
+        <p class="small foreverNote" id="foreverNote"></p>
+        <label class="lbl">Total time</label>
+        <div class="chips" id="chipsSession"></div>
+        <label class="lbl">Number of clips</label>
+        <div class="chips" id="chipsCount"></div>
+        <label class="check"><input type="checkbox" id="optFade"> Fade the sound out at the end</label>
+      </div>
+
+      <div class="card">
+        <h2>📺 Transition</h2>
+        <div class="chips" id="chipsTrans"></div>
+        <label class="lbl">Transition length</label>
+        <div class="chips" id="chipsTransLen"></div>
+        <label class="check"><input type="checkbox" id="optTransSound"> Transition sound</label>
+        <button id="btnTransPreview" class="accent">👁 Preview this transition</button>
+      </div>
+
+      <div class="card">
+        <h2>📣 “Up Next” banner</h2>
+        <p class="small">A little channel-bumper that pops up near the end of each clip and tells you what's coming.</p>
+        <div class="chips" id="chipsBanner"></div>
+        <label class="lbl">Shows up this long before the switch</label>
+        <div class="chips" id="chipsBannerSec"></div>
+        <label class="check"><input type="checkbox" id="optBannerSound"> Banner sound</label>
+        <button id="btnBannerPreview" class="accent">👁 Preview this banner</button>
+        <p class="small" id="bannerNote"></p>
+      </div>
+
+      <div class="card">
+        <h2>🖼 Screen frame</h2>
+        <p class="small">The set your video lives in. Changes show right away.</p>
+        <div class="chips" id="chipsFrame"></div>
+        <label class="check"><input type="checkbox" id="optFrameFs"> Keep the frame visible in fullscreen</label>
+      </div>
+
+      <div class="card">
+        <h2>📼 Screen filter</h2>
+        <p class="small">A TV-style look over the picture. Changes show right away.</p>
+        <div class="chips" id="chipsFilter"></div>
+        <label class="lbl">Strength</label>
+        <div class="chips" id="chipsFilterAmt"></div>
+      </div>
+
+      <div class="card">
+        <h2>🌤 Weather overlay</h2>
+        <p class="small">A small, quiet weather readout in one corner of the screen.</p>
+        <label class="check"><input type="checkbox" id="optWx"> Show the weather on screen</label>
+        <div id="wxBody" hidden>
+          <button id="btnWxLoc" class="accent">📍 Use my location</button>
+          <div id="wxStatus" class="folderInfo"></div>
+          <details id="wxSearch"><summary>Or search for a city</summary>
+            <div class="row wxFind"><input type="text" id="wxQuery" placeholder="City name" autocomplete="off"><button id="btnWxFind">Find</button></div>
+            <div id="wxResults"></div>
+          </details>
+          <label class="lbl">Corner</label>
+          <div class="chips" id="chipsWxCorner"></div>
+          <label class="lbl">Units</label>
+          <div class="chips" id="chipsWxUnit"></div>
+          <label class="lbl">Detail</label>
+          <div class="chips" id="chipsWxStyle"></div>
+          <p class="small">Your location stays on this device (rounded to about 1 km). It's only sent to the free Open-Meteo weather service, and once to BigDataCloud to look up your city name. Weather needs internet; offline, Dreamer shows the last reading.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>⚙️ Extras</h2>
+        <label class="lbl">Picture</label>
+        <div class="chips" id="chipsFit"></div>
+        <label class="check"><input type="checkbox" id="optWake"> Keep the screen awake while dreaming</label>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<input type="file" id="fallbackPicker" webkitdirectory multiple hidden>
+<script src="app.js"></script>
+</body>
+</html>
